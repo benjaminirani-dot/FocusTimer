@@ -1,81 +1,144 @@
-<!doctype html>
-<title>Countdown</title>
-<style>
-    html, body {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-    }
-    body {
-        background: linear-gradient(to bottom, #123, #234);
-        color: #fff;
-        font: 18px Cousine, Menlo, Monaco, monospace;
-    }
-    #timer {
-        position: fixed;
-        top: 0; right: 0; bottom: 0; left: 0;
-        text-align: center;
-        line-height: 90vh;
-        font-size: 240px;
-    }
-    #control {
-        position: fixed;
-        top: 30px; left: 30px;
-        background: #353433;
-        border: 2px solid #656463;
-        opacity: 1;
-        transition: 0.1s opacity;
-    }
-    #control button {
-        background: #000;
-        border: 1px solid #555453;
-        padding: 4px;
-        margin: 2px;
-        color: #4f4;
-        font-family: inherit;
-        font-size: 20px;
-    }
-    .controls-hidden #timer {
-        cursor: none;
-    }
-    .controls-hidden #control {
-        opacity: 0;
-        pointer-events: none;
-    }
-</style>
-<body>
-    <div id="timer" onclick="toggleControls()"></div>
-    <div id="control">
-        <button onclick="setTimer()">Set timer</button>
-        <button onclick="resetTimer()">Reset</button>
-        <button onclick="toggleControls()">Hide</button>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FocusTimer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-100 to-purple-200 flex flex-col items-center p-6">
+
+  <h1 class="text-4xl font-bold mb-6">FocusTimer</h1>
+
+  <div class="bg-white rounded-2xl shadow-xl p-6 w-80 text-center">
+    <h2 class="text-2xl font-semibold mb-4">Pomodoro Timer</h2>
+    <p id="timer" class="text-5xl font-mono mb-4">25:00</p>
+    <div class="space-x-2">
+      <button id="startBtn" class="bg-blue-500 text-white px-4 py-2 rounded-xl">Start</button>
+      <button id="resetBtn" class="bg-gray-300 px-4 py-2 rounded-xl">Reset</button>
     </div>
-    <script>
-    var endTime = (+localStorage.endTime || 0)
-    function setTimer() {
-        var duration = +prompt('How long to set the timer (minutes)', '15')
-        endTime = localStorage.endTime = duration * 60e3 + Date.now()
-        update()
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-xl p-6 w-80 mt-6">
+    <h2 class="text-2xl font-semibold mb-3">Tasks</h2>
+    <div class="flex mb-3">
+      <input id="taskInput" placeholder="New task" class="border rounded-l-xl px-2 py-1 w-full" />
+      <button id="addTaskBtn" class="bg-green-500 text-white px-3 rounded-r-xl">+</button>
+    </div>
+    <ul id="taskList"></ul>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-xl p-6 w-80 mt-6 text-center">
+    <h2 class="text-2xl font-semibold mb-2">Daily Stats</h2>
+    <p>Completed Sessions: <strong id="sessionCount">0</strong></p>
+    <p id="quote" class="mt-3 italic text-sm text-gray-600"></p>
+  </div>
+
+  <script>
+    let time = 25 * 60;
+    let isRunning = false;
+    let timerInterval;
+    let completedSessions = JSON.parse(localStorage.getItem('sessions')) || 0;
+    const quotes = [
+      "Focus on being productive instead of busy.",
+      "Every minute counts.",
+      "Discipline beats motivation.",
+      "Small steps every day lead to big results.",
+      "Stay focused and never give up."
+    ];
+
+    const timerDisplay = document.getElementById('timer');
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const sessionCount = document.getElementById('sessionCount');
+    const quoteDisplay = document.getElementById('quote');
+
+    const taskInput = document.getElementById('taskInput');
+    const addTaskBtn = document.getElementById('addTaskBtn');
+    const taskList = document.getElementById('taskList');
+    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+    function updateTimerDisplay() {
+      const minutes = Math.floor(time / 60);
+      const seconds = time % 60;
+      timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
+
+    function toggleTimer() {
+      if (isRunning) {
+        clearInterval(timerInterval);
+        startBtn.textContent = 'Start';
+      } else {
+        timerInterval = setInterval(() => {
+          if (time > 0) {
+            time--;
+            updateTimerDisplay();
+          } else {
+            clearInterval(timerInterval);
+            completedSessions++;
+            localStorage.setItem('sessions', JSON.stringify(completedSessions));
+            sessionCount.textContent = completedSessions;
+            quoteDisplay.textContent = quotes[Math.floor(Math.random() * quotes.length)];
+            time = 25 * 60;
+            updateTimerDisplay();
+            startBtn.textContent = 'Start';
+            isRunning = false;
+          }
+        }, 1000);
+        startBtn.textContent = 'Pause';
+      }
+      isRunning = !isRunning;
+    }
+
     function resetTimer() {
-        endTime = 0
+      clearInterval(timerInterval);
+      isRunning = false;
+      time = 25 * 60;
+      updateTimerDisplay();
+      startBtn.textContent = 'Start';
     }
-    function toggleControls() {
-        document.body.classList.toggle('controls-hidden')
+
+    function addTask() {
+      const taskText = taskInput.value.trim();
+      if (taskText !== '') {
+        tasks.push({ text: taskText, done: false });
+        taskInput.value = '';
+        saveTasks();
+        renderTasks();
+      }
     }
-    function update() {
-        var timeLeft = endTime - Date.now()
-        if (timeLeft < 0) {
-            setText('--:--')
-        } else {
-            var minutes = Math.floor(timeLeft / 60e3)
-            var seconds = Math.floor(timeLeft / 1e3) % 60
-            setText(`${minutes}:${seconds.toString(10).padStart(2, '0')}`)
-        }
+
+    function toggleTask(index) {
+      tasks[index].done = !tasks[index].done;
+      saveTasks();
+      renderTasks();
     }
-    function setText(text) {
-        document.getElementById('timer').textContent = text
+
+    function saveTasks() {
+      localStorage.setItem('tasks', JSON.stringify(tasks));
     }
-    setInterval(update, 200)
-    </script>
+
+    function renderTasks() {
+      taskList.innerHTML = '';
+      tasks.forEach((task, i) => {
+        const li = document.createElement('li');
+        li.textContent = task.text;
+        li.className = `cursor-pointer text-left mb-1 ${task.done ? 'line-through text-gray-400' : ''}`;
+        li.onclick = () => toggleTask(i);
+        taskList.appendChild(li);
+      });
+    }
+
+    // Initialize
+    updateTimerDisplay();
+    sessionCount.textContent = completedSessions;
+    renderTasks();
+
+    // Event listeners
+    startBtn.addEventListener('click', toggleTimer);
+    resetBtn.addEventListener('click', resetTimer);
+    addTaskBtn.addEventListener('click', addTask);
+  </script>
 </body>
+</html>
+
